@@ -28,18 +28,28 @@ bool read_file(std::string& output, const std::string& filename) {
 }
 
 string runLua(const string& script) {
+    // create a new lua environment
     lua_State* l = luaL_newstate();
+
+    // load the standard library
     luaL_openlibs(l);
 
+    // load the script, compile it as a function,
+    // and push the compiled function onto the stack
+    // then,
+    // call that compiled function
     if (luaL_loadbuffer(l, script.c_str(), script.size(), "script") || lua_pcall(l, 0, LUA_MULTRET, 0)) {
+        // there was an error, pop it off the stack
         const char* ret = lua_tostring(l, -1);
         cerr << "ERROR: " << ret << endl;
         lua_close(l);
         exit(1);
     }
 
+    // pop the result off the stack and convert it to a string
     string ret = lua_tostring(l, -1);
 
+    // close the lua environment
     lua_close(l);
 
     return ret;
