@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<!--
+Google HTML5 slide template  Authors: Luke Mahe (code)
+Marcin Wichary (code and design)
+Dominic Mazzoni (browser compatibility)
+Charles Chen (ChromeVox support)
+URL: http://code.google.com/p/html5slides/
+-->
+<html>
+  <head>
+  <title>Presentation</title>
+    <meta charset='utf-8'>
+    <script src='http://html5slides.googlecode.com/svn/trunk/slides.js'></script>
+</head><body style='display: none'>    <section class='slides'><article>
+  <h1>
+    Embedding LuaJIT with FFI
+  </h1>
+  <p>
+    Vadim Graboys<br/>
+    @deapthoughts<br/>
+    <a href="https://github.com/vadimg/luajit-talk">github.com/vadimg/luajit-talk</a>
+  </p>
+</article>
+
+<article>
+  <h3>
+    Who am I?
+  </h3>
+  <ul>
+    <li>Working at Chartbeat for a year, mostly on a custom datastore written in C</li>
+    <li>Professionally programmed in C, C++, C#, Ruby, Python, Javascript (client-side and server-side), and now Lua</li>
+    <li>But for only 4 years total</li>
+    <li>Jack of all trades, master of none</li>
+    <li>This is also my first talk ever!</li>
+  </ul>
+</article>
+
+<article>
+  <h3>
+    What's Lua and why would I want to put it in my binary?
+  </h3>
+  <ul>
+    <li>Lua is small: implementation is < 20k lines of C</li>
+    <li>Lua is simple: only 1 datastructure</li>
+    <li>LuaJIT is a really, really fast Lua implementation</li>
+    <li>LuaJIT FFI is a really nice C/Lua interface</li>
+  </ul>
+<p>But also weird:<br/>
+<a href="http://notebook.kulchenko.com/programming/lua-good-different-bad-and-ugly-parts">http://notebook.kulchenko.com/programming/lua-good-different-bad-and-ugly-parts</a>
+</article>
+
+
+<article>
+  <h3>
+    Lua Crash Course
+  </h3>
+<p>Arrays are tables:
+<pre>
+local arr = {1, 2, 3}
+</pre>
+
+<p>Dictionaries are tables:
+<pre>
+local dict = {a = 1, b = 2}
+</pre>
+
+<p>Array indexes start at 1:
+<pre>
+> arr[1]
+1
+</pre>
+</article>
+
+<article>
+  <h3>
+    Objects are also tables
+  </h3>
+<pre>
+Account = {
+    balance = 0,
+    new = function(self)
+        local o = {}
+        setmetatable(o, self)
+        self.__index = self
+        return o
+    end,
+    deposit = function(self, amt)
+        self.balance = self.balance + amt
+    end
+}
+
+local o = Account.new(Account)
+o.deposit(o, 10)
+print(o.balance)
+</pre>
+Output: 10
+</article>
+
+
+<article>
+  <h3>
+    Object syntatic sugar
+  </h3>
+<pre>
+Account = { balance = 0 }
+function Account:new()
+    local o = {}
+    setmetatable(o, self)
+    self.__index = self
+    return o
+end
+
+function Account:deposit(amt)
+    self.balance = self.balance + amt
+end
+
+local o = Account:new()
+o:deposit(10)
+print(o.balance)
+</pre>
+Output: 10
+</article>
+
+
+<article>
+  <h3>
+    Lua/C interface
+  </h3>
+<p>The interface is an abstract stack
+<p>To send data or register functions to lua:
+  <ul>
+    <li>Push onto the stack</li>
+    <li>Tell lua to pop from the stack</li>
+  </ul>
+<p>To get data from lua:
+   <ul>
+    <li>Lua will push stuff onto the stack</li>
+    <li>Pop the data off the stack and convert to native C type
+  </ul>
+</article>
+
+
+<article>
+  <h3>
+    What's Chartbeat's problem?
+  </h3>
+<p>Realtime analytics is hard.</p>
+  <ul>
+    <li>130k HTTP requests/second (writes)</li>
+    <li>4k HTTP requests/second (reads)</li>
+    <li>130MB/second writes, 100MB/second reads
+    <li>Reads are an aggregation of all data for a website</li>
+    <li>No datastore could perform well enough at a cost we liked, so we wrote our own</li>
+  </ul>
+</article>
+
+
+<article>
+  <h3>Memoryfly</h3>
+  <ul>
+    <li>Single-threaded, uses libevent</li>
+    <li>Stateful HTTP Server</li>
+    <li>Contains business logic</li>
+    <li>All in one: HTTP Server, Application Server, Database</li>
+    <li>Complex: only 2 people in the company can work on it</li>
+    <li>Fixed queries: adding a new query takes development time</li>
+    <li>Want to add ad-hoc query capability</li>
+  </ul>
+</article>
+
+
+<article>
+  <h3>Common query</h3>
+<p>What are the top k pages (filtered by some criteria)?</p>
+<p>Similar to:<br/>
+Given a list of strings, what are the top k most frequently occurring strings?
+</p>
+<br/>
+<h3>Algorithm</h3>
+<ul>
+<li>Count the occurrences of each string by filling up a hashtable of string -> count.</li>
+<li>Iterate through the hashtable, putting each [count, string] pair into a min-heap (sorted by count) of size k.</li>
+<li>O(n + u * log(k)), n = number of strings, u = number of unique strings
+</ul>
+</article>
+
+<article>
+  <h3>Implementation</h3>
+<p>Located at: <a href="http://github.com/vadimg/luajit-talk">http://github.com/vadimg/luajit-talk</a></p>
+<p>Implemented in:
+<ul>
+<li>C++
+<li>Javascript (v8)
+<li>Lua using C API
+<li>Lua using LuaJIT FFI
+</ul>
+<p>Data is a list of strings, 1 per line, in a file.
+<p>Common interface to data for all implementations (data.h)
+</article>
+
+<article>
+  <h3>LuaJIT Limitations</h3>
+<ul>
+<li>On x64, can't allocate more than 2GB of Lua objects
+<li>On x64, all Lua memory allocations must be in the first 2GB region of the address space (<a href="http://hacksoflife.blogspot.com/2012/12/integrating-luajit-with-x-plane-64-bit.html">http://hacksoflife.blogspot.com/2012/12/integrating-luajit-with-x-plane-64-bit.html</a>)
+<li>On x64, can't provide your own allocation functions
+<li>Garbage collector is slow (same as standard Lua)
+</ul>
+</article>
+
+<article>
+  <h3>Takeaway</h3>
+<ul>
+<li>LuaJIT is really, really fast
+<li>You can get all the flexibility and development speed of a dynamic language, with the performance of C
+<li>LuaJIT's FFI is so easy to use that exposing C functions to Lua is no longer a pain
+<li>Consider using it in your C/C++ projects :)
+</ul>
+</article>
+
+<article>
+  <h1>We're hiring</h1>
+<p><a href="http://chartbeat.com/jobs/">chartbeat.com/jobs</a>
+</article></section></body></html>
