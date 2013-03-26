@@ -1,5 +1,4 @@
 #include <string>
-#include <fstream>
 #include <iostream>
 #include <sys/time.h>
 
@@ -12,20 +11,6 @@ extern "C" {
 #include "data.h"
 
 using namespace std;
-
-bool read_file(std::string& output, const std::string& filename) {
-    std::ifstream t(filename.c_str());
-    if (!t.good()) {
-        return false;
-    }
-
-    t.seekg(0, std::ios::end);
-    size_t size = t.tellg();
-    output.resize(size);
-    t.seekg(0);
-    t.read(&output[0], size);
-    return true;
-}
 
 extern "C" {
 
@@ -49,7 +34,7 @@ static int lua_data_elem(lua_State *lua) {
 
 }
 
-string runLua(const string& script) {
+string runLua(const char* filename) {
     // create a new lua environment
     lua_State* l = luaL_newstate();
 
@@ -69,7 +54,7 @@ string runLua(const string& script) {
     // and push the compiled function onto the stack
     // then,
     // call that compiled function
-    if (luaL_loadbuffer(l, script.c_str(), script.size(), "script") || lua_pcall(l, 0, LUA_MULTRET, 0)) {
+    if (luaL_loadfile(l, filename) || lua_pcall(l, 0, LUA_MULTRET, 0)) {
         // there was an error, pop it off the stack
         const char* ret = lua_tostring(l, -1);
         cerr << "ERROR: " << ret << endl;
@@ -91,12 +76,8 @@ int main(int argc, char** argv) {
 
     load_data(argc > 1 ? argv[1] : "data_10k");
 
-    string script;
-
-    read_file(script, "lua-api.lua");
-
     gettimeofday(&start, NULL);
-    string ret = runLua(script);
+    string ret = runLua("lua-api.lua");
     gettimeofday(&end, NULL);
 
     cout << ret << endl;
