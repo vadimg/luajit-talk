@@ -1,7 +1,10 @@
 LuaJIT FFI Talk
 ===============
 
-Sections:
+Slides: http://vadimg.github.com/luajit-talk
+
+Sections
+---------
 
    * __perf__: Performance tests
    * __hello__: Simple "Hello World" example
