@@ -52,7 +52,6 @@ print('p2', p2)
 
 print('p1-p2 distance', C.point_distance(p1, p2))
 
--- use this method because it registers the allocated struct with lua's GC
 print('p1 unit', p1:unit())
 
 print('p2 polar', p2:polar())
